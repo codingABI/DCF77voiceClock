@@ -116,7 +116,7 @@
 #define USERTIMEOUT 60 // Set timeout in MS for user inputs
 #define DCF77SYNCHOUR 0 // Hour for daily DCF77 time sync
 #define MP3INITVOLUME 20 // Default audio level
-#define MP3MINVOLUME 10 // Minium audio in menu
+#define MP3MINVOLUME 10 // Minimum audio level while in menu
 #define MAXIDLECHECKS 2 // Number of consecutive IDLE checks before audio module will be powered of in loop
 #define LANGUAGEINITID EN // Default speech language
 
