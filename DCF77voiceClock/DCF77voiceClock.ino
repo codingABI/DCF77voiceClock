@@ -82,7 +82,7 @@
  * History: 
  * 20240208, Initial version  
  * 20240321, Add g_initTimeSyncPending
- * 20240511, Remote unneeded defines
+ * 20240511, Remove unneeded defines
  */
  
 #include <avr/sleep.h> //Needed for sleep_mode
