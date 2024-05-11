@@ -375,7 +375,7 @@ void menu() {
             currentUTCTime = getCurrentUTC();
             if (!g_weakTime) { // Success
               // Schedule daily DCF77 sync
-              g_nextDCF77Sync = tmConvert_t(year(currentUTCTime), month(currentUTCTime), day(currentUTCTime), DCF77SYNCHOUR, 0,0)+SECSPERDAY;
+              g_nextDCF77Sync = tmConvert_t(year(currentUTCTime), month(currentUTCTime), day(currentUTCTime), DCF77SYNCHOUR, 0,0)+SECS_PER_DAY;
               setPendingAudio(AUDIO_SYNCSUCCESS);
             } else setPendingAudio(AUDIO_SYNCABORTED);
             addPendingAudio(AUDIO_MAINMENU);
@@ -612,7 +612,7 @@ void setManualTime() {
             g_weakTime = true; // Do not 100% trust manual time
             lastUserInputUTC = getCurrentUTC();
             // Schedule next DCF77 sync for next day
-            g_nextDCF77Sync = tmConvert_t(year(lastUserInputUTC), month(lastUserInputUTC), day(lastUserInputUTC), DCF77SYNCHOUR, 0,0)+SECSPERDAY;
+            g_nextDCF77Sync = tmConvert_t(year(lastUserInputUTC), month(lastUserInputUTC), day(lastUserInputUTC), DCF77SYNCHOUR, 0,0)+SECS_PER_DAY;
             // Say current selected item
             localTime = UTCtoLocalTime(getCurrentUTC());
             setPendingAudio(AUDIO_CURRENTITEM);

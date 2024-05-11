@@ -82,6 +82,7 @@
  * History: 
  * 20240208, Initial version  
  * 20240321, Add g_initTimeSyncPending
+ * 20240511, Remote unneeded defines
  */
  
 #include <avr/sleep.h> //Needed for sleep_mode
@@ -114,8 +115,6 @@
 
 #define USERTIMEOUT 60 // Set timeout in MS for user inputs
 #define DCF77SYNCHOUR 0 // Hour for daily DCF77 time sync
-#define SECSPERHOUR 3600 // Seconds per hour
-#define SECSPERDAY 86400 // Seconds per day
 #define MP3INITVOLUME 20 // Default audio level
 #define MP3MINVOLUME 10 // Minium audio in menu
 #define MAXIDLECHECKS 2 // Number of consecutive IDLE checks before audio module will be powered of in loop
@@ -471,10 +470,10 @@ void loop() {
       currentUTCTime = getCurrentUTC();
       if (g_initTimeSyncPending) { // If time was never set/synced
         // Schedule next DCF77 sync in 4h
-        g_nextDCF77Sync = currentUTCTime + 4*SECSPERHOUR;
+        g_nextDCF77Sync = currentUTCTime + 4*SECS_PER_HOUR;
       } else {
         // Schedule daily DCF77 sync 00:00 next day
-        g_nextDCF77Sync = tmConvert_t(year(currentUTCTime), month(currentUTCTime), day(currentUTCTime), DCF77SYNCHOUR, 0,0)+SECSPERDAY;
+        g_nextDCF77Sync = tmConvert_t(year(currentUTCTime), month(currentUTCTime), day(currentUTCTime), DCF77SYNCHOUR, 0,0)+SECS_PER_DAY;
       }
     }
 
