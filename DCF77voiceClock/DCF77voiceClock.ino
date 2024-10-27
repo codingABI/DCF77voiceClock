@@ -83,6 +83,8 @@
  * 20240208, Initial version  
  * 20240321, Add g_initTimeSyncPending
  * 20240511, Remove unneeded defines
+ * 20241027, Set currenttime in loop more early
+ *           Move DCF77SYNCHOUR from 0 to 3 to avoid problems at summer-/wintertime change
  */
  
 #include <avr/sleep.h> //Needed for sleep_mode
@@ -114,7 +116,7 @@
 #define DCF77_OUT_PIN 2 // DCF77 out
 
 #define USERTIMEOUT 60 // Set timeout in MS for user inputs
-#define DCF77SYNCHOUR 0 // Hour for daily DCF77 time sync
+#define DCF77SYNCHOUR 3 // Hour for daily DCF77 time sync
 #define MP3INITVOLUME 20 // Default audio level
 #define MP3MINVOLUME 10 // Minimum audio level while in menu
 #define MAXIDLECHECKS 2 // Number of consecutive IDLE checks before audio module will be powered of in loop
@@ -417,6 +419,7 @@ void loop() {
   static byte idleCounter;
 
   wdt_reset();
+  currentUTCTime = getCurrentUTC();
 
   // Update Vcc measurement dependent on previous Vcc
   if (Vcc == VCCUNKNOWN) { // First Vcc measurement needed
@@ -439,7 +442,6 @@ void loop() {
   }
 
   // Power off audio module, when not needed anymore
-  currentUTCTime = getCurrentUTC();
   if ((g_MP3enabled) && (currentUTCTime != lastAudioCheckUTC)) {
     if (g_audio->getStatus() == DFR0534::STOPPED){
       idleCounter++;
