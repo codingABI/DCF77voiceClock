@@ -85,6 +85,8 @@
  * 20240511, Remove unneeded defines
  * 20241027, Set currenttime in loop more early
  *           Move DCF77SYNCHOUR from 0 to 3 to avoid problems at summer-/wintertime change
+ *           Use DCF.getUTCTime instead of localTimeToUTC(DCF.getTime())
+ *           Rename function getCurrentUTC to getCurrentTimeUTC
  */
  
 #include <avr/sleep.h> //Needed for sleep_mode
@@ -340,7 +342,7 @@ void setCurrentUTC(unsigned long clock) {
 }
 
 // Return clock in seconds since 1.1.1970
-unsigned long getCurrentUTC() {
+unsigned long getCurrentTimeUTC() {
   cli();
   unsigned long clock = v_clock;
   sei();
@@ -360,7 +362,7 @@ time_t tmConvert_t(int YYYY, byte MM, byte DD, byte hh, byte mm, byte ss)
   return makeTime(tmSet);
 }
 
-// Convert local time to UTC
+// Convert local time to UTC (First hour of summertime->wintertime change will be returned as wintertime) 
 time_t localTimeToUTC(time_t localTime) {
   if (summertime_EU(year(localTime),month(localTime),day(localTime),hour(localTime),1)) {
     return localTime-7200UL; // Summer time (Germany)
@@ -419,7 +421,9 @@ void loop() {
   static byte idleCounter;
 
   wdt_reset();
-  currentUTCTime = getCurrentUTC();
+
+  // Get current time
+  currentUTCTime = getCurrentTimeUTC();
 
   // Update Vcc measurement dependent on previous Vcc
   if (Vcc == VCCUNKNOWN) { // First Vcc measurement needed
@@ -469,7 +473,7 @@ void loop() {
       cli();
       v_PIRAlert = false; // Clear unprocessed PIR interrupt
       sei();
-      currentUTCTime = getCurrentUTC();
+      currentUTCTime = getCurrentTimeUTC();
       if (g_initTimeSyncPending) { // If time was never set/synced
         // Schedule next DCF77 sync in 4h
         g_nextDCF77Sync = currentUTCTime + 4*SECS_PER_HOUR;
@@ -508,7 +512,7 @@ void loop() {
           if (g_MP3Volume < MP3MINVOLUME) g_pendingAudio.volume = MP3MINVOLUME; // Use MP3MINVOLUME, when used volume is too low for the menu
           if (changeVolume()) setPendingAudio(AUDIO_DONE);
           else setPendingAudio(AUDIO_ABORTED);
-          currentUTCTime = getCurrentUTC();
+          currentUTCTime = getCurrentTimeUTC();
           lastAudioCheckUTC = currentUTCTime;
           idleCounter = 0;
           cli();
@@ -522,7 +526,7 @@ void loop() {
       case SWITCHBUTTON::SHORTPRESSED:
       case SWITCHBUTTON::LONGPRESSED:
           menu();
-          currentUTCTime = getCurrentUTC();
+          currentUTCTime = getCurrentTimeUTC();
           lastAudioCheckUTC = currentUTCTime;
           idleCounter = 0;
           cli();

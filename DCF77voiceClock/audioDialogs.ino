@@ -116,7 +116,7 @@ void relaxedCheckPendingAudio() {
 
 // Say complete time (clock, date, sunrise, sunset...)
 void sayCompleteTime() {
-  unsigned long currentUTCTime =  getCurrentUTC();
+  unsigned long currentUTCTime =  getCurrentTimeUTC();
   unsigned long currentLocalTime = UTCtoLocalTime(currentUTCTime);
 
   clearPendingAudio();
@@ -175,16 +175,15 @@ void setTimeFromDCF77() {
   digitalWrite(DCF77_VCC_PIN,HIGH);
   // Enable interrupt for DCF77 out pin
   DCF.Start();
-  syncStartTimeUTC = getCurrentUTC();
+  syncStartTimeUTC = getCurrentTimeUTC();
   g_weakTime = true;
-
 
   do {
     wdt_reset();
     relaxedCheckPendingAudio();
 
     // Power off audio module, when not needed anymore
-    currentUTCTime = getCurrentUTC();
+    currentUTCTime = getCurrentTimeUTC();
     if ((g_MP3enabled) && (currentUTCTime != lastAudioCheckUTC)) {
       if (g_audio->getStatus() == DFR0534::STOPPED){
         idleCounter++;
@@ -205,9 +204,9 @@ void setTimeFromDCF77() {
       lastOutput = output;
     }
 
-    time_t DCFtime = DCF.getTime(); // Check if new DCF77 time is available
+    time_t DCFtime = DCF.getUTCTime(); // Check if new DCF77 time is available
     if (DCFtime!=0) {
-      setCurrentUTC(localTimeToUTC(DCFtime));
+      setCurrentUTC(DCFtime);
       g_initTimeSyncPending = false;
       g_weakTime = false;
       exitLoop = true;
@@ -269,7 +268,7 @@ void menu() {
   if (g_MP3Volume < MP3MINVOLUME) g_pendingAudio.volume = MP3MINVOLUME;
 
   // Initial timestamp for user input timeout
-  lastUserInputUTC = getCurrentUTC();
+  lastUserInputUTC = getCurrentTimeUTC();
 
   do { // Loop until User input or timeout expiration
     wdt_reset();
@@ -323,12 +322,12 @@ void menu() {
     switch (g_rotaryEncoder.getAndResetLastRotation()) {
       case KY040::CLOCKWISE:
         if (currentMenuItem < MAXMENUITEMS - 1) currentMenuItem++; else currentMenuItem = 0;
-        lastUserInputUTC = getCurrentUTC();
+        lastUserInputUTC = getCurrentTimeUTC();
         beep(MICROBEEP);
         break;
       case KY040::COUNTERCLOCKWISE:
         if (currentMenuItem > 0) currentMenuItem--; else currentMenuItem = MAXMENUITEMS-1;
-        lastUserInputUTC = getCurrentUTC();
+        lastUserInputUTC = getCurrentTimeUTC();
         beep(MICROBEEP);
         break;
     }
@@ -372,7 +371,7 @@ void menu() {
             g_dcfAudioMode = MP3MODE;
             setTimeFromDCF77();
             g_dcfAudioMode = SILENTMODE;
-            currentUTCTime = getCurrentUTC();
+            currentUTCTime = getCurrentTimeUTC();
             if (!g_weakTime) { // Success
               // Schedule daily DCF77 sync
               g_nextDCF77Sync = tmConvert_t(year(currentUTCTime), month(currentUTCTime), day(currentUTCTime), DCF77SYNCHOUR, 0,0)+SECS_PER_DAY;
@@ -389,11 +388,11 @@ void menu() {
             addPendingAudio(AUDIO_CHANGETIME);
             break;
         }
-        lastUserInputUTC = getCurrentUTC();
+        lastUserInputUTC = getCurrentTimeUTC();
         relaxedCheckPendingAudio();
         break;
     }
-    if (getCurrentUTC() - lastUserInputUTC > USERTIMEOUT) { // Exit on timeout
+    if (getCurrentTimeUTC() - lastUserInputUTC > USERTIMEOUT) { // Exit on timeout
       // Abort menu
       exitLoop = true;
     }
@@ -426,7 +425,7 @@ void setManualTime() {
   // Set initial encoder value
   currentValue = currentSelectedItem;
   lastValue = currentValue;
-  lastUserInputUTC = getCurrentUTC();
+  lastUserInputUTC = getCurrentTimeUTC();
 
   // Intro audio
   setPendingAudio(AUDIO_CHANGETIMEDESC);
@@ -441,7 +440,7 @@ void setManualTime() {
     if (currentValue != lastValue) {
       switch (currentMode) {
         case SELECT: // Item selection
-          localTime = UTCtoLocalTime(getCurrentUTC());
+          localTime = UTCtoLocalTime(getCurrentTimeUTC());
           if (aborted) {
             setPendingAudio(AUDIO_ABORTED);
             aborted = false;
@@ -512,12 +511,12 @@ void setManualTime() {
     switch (g_rotaryEncoder.getAndResetLastRotation()) {
       case KY040::CLOCKWISE:
         if (currentValue < currentMaxOptions - 1) currentValue++; else currentValue = 0;
-        lastUserInputUTC = getCurrentUTC();
+        lastUserInputUTC = getCurrentTimeUTC();
         beep(MICROBEEP);
         break;
       case KY040::COUNTERCLOCKWISE:
         if (currentValue > 0) currentValue--; else currentValue = currentMaxOptions -1;
-        lastUserInputUTC = getCurrentUTC();
+        lastUserInputUTC = getCurrentTimeUTC();
         beep(MICROBEEP);
         break;
     }
@@ -555,7 +554,7 @@ void setManualTime() {
     switch (g_switchButton.getButton()) {
       case SWITCHBUTTON::SHORTPRESSED:
       case SWITCHBUTTON::LONGPRESSED:
-        lastUserInputUTC = getCurrentUTC();
+        lastUserInputUTC = getCurrentTimeUTC();
         switch (currentMode) {
           case SELECT:
             switch(currentSelectedItem) {
@@ -610,11 +609,11 @@ void setManualTime() {
             setCurrentUTC(localTimeToUTC(localTime));
             g_initTimeSyncPending = false;
             g_weakTime = true; // Do not 100% trust manual time
-            lastUserInputUTC = getCurrentUTC();
+            lastUserInputUTC = getCurrentTimeUTC();
             // Schedule next DCF77 sync for next day
             g_nextDCF77Sync = tmConvert_t(year(lastUserInputUTC), month(lastUserInputUTC), day(lastUserInputUTC), DCF77SYNCHOUR, 0,0)+SECS_PER_DAY;
             // Say current selected item
-            localTime = UTCtoLocalTime(getCurrentUTC());
+            localTime = UTCtoLocalTime(getCurrentTimeUTC());
             setPendingAudio(AUDIO_CURRENTITEM);
             switch (currentValue) {
               case SELECTHOUR:
@@ -647,7 +646,7 @@ void setManualTime() {
         break;
     }
 
-    if (getCurrentUTC() - lastUserInputUTC > USERTIMEOUT) { // Exit on timeout
+    if (getCurrentTimeUTC() - lastUserInputUTC > USERTIMEOUT) { // Exit on timeout
       switch (currentMode) {
         case SELECT:
           // Abort selection
@@ -659,7 +658,7 @@ void setManualTime() {
           currentValue = currentSelectedItem;
           currentMode = SELECT;
           lastValue = MAXSELECTITEMS;
-          lastUserInputUTC = getCurrentUTC();
+          lastUserInputUTC = getCurrentTimeUTC();
           aborted = true;
           break;
       }
@@ -687,7 +686,7 @@ bool changeVolume() {
   if (g_MP3Volume < MP3MINVOLUME) g_pendingAudio.volume = MP3MINVOLUME;
 
   // Initial timestamp for user input timeout
-  lastUserInputUTC = getCurrentUTC();
+  lastUserInputUTC = getCurrentTimeUTC();
 
   do { // Loop until User select OK or cancel or input timeout expiration
     wdt_reset();
@@ -714,12 +713,12 @@ bool changeVolume() {
     switch (g_rotaryEncoder.getAndResetLastRotation()) {
       case KY040::CLOCKWISE:
         if (currentValue < currentMaxValue - 1) currentValue++;
-        lastUserInputUTC = getCurrentUTC();
+        lastUserInputUTC = getCurrentTimeUTC();
         beep(MICROBEEP);
         break;
       case KY040::COUNTERCLOCKWISE:
         if (currentValue > 0) currentValue--;
-        lastUserInputUTC = getCurrentUTC();
+        lastUserInputUTC = getCurrentTimeUTC();
         beep(MICROBEEP);
         break;
     }
@@ -734,7 +733,7 @@ bool changeVolume() {
         break;
     }
 
-    if (getCurrentUTC() - lastUserInputUTC > USERTIMEOUT) { // Exit on timeout expiration
+    if (getCurrentTimeUTC() - lastUserInputUTC > USERTIMEOUT) { // Exit on timeout expiration
       exitLoop = true;
       aborted = true;
       break;
