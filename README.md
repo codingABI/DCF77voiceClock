@@ -3,7 +3,7 @@
 
 The DCF77voiceClock is a DIY clock without a display that speaks the current time acoustically when a motion is detected by a PIR sensor
 - Device works offline (audio samples are stored locally on a MP3 module)
-- Time can be synced by DCF77 (manually and once per day at 00:00)
+- Time can be synced by DCF77 (manually and once per day at 03:00 UTC)
 - Time can be set manually
 - Device runs on battery
 - Device has no display and communicates only acoustically (also in menu or when changing settings)
