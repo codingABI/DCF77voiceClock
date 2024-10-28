@@ -68,7 +68,7 @@ When you get compile error "multiple definition of `__vector_5'" comment out "IS
 - During the menu system, the audio module DFR0534 is needed => Keep you menu actions short
 - **Do not connect the DFR0534 module to USB without removing the DFR0534 module from the perfboard** because the DFR0534 module will connect 5V from USB to the TP4056 output and can break the TP4056 or other components 
 - Do not connect ICSP-Vcc other than 3.3V (Better leave ICSP-Vcc unconnected)
-- All audio samples has to be strored in the subfolder ZH on the DFR0534 audio module. Only the optional startup.mp3 is stored in the root folder
+- All audio samples has to be stored in the subfolder ZH on the DFR0534 audio module. Only the optional startup.mp3 is stored in the root folder
   
 ## Device behavior
 - When the DCF77voideClock is powered on a DCF77 time sync is startet (and you can hear micro clicks for every reveived DCF77 signal)
