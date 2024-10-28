@@ -73,7 +73,7 @@ When you get compile error "multiple definition of `__vector_5'" comment out "IS
 ## Device behavior
 - When the DCF77voideClock is powered on a DCF77 time sync is startet (and you can hear micro clicks for every reveived DCF77 signal)
 - After first successful DCF77 time synchronization:
-  - the synchronization will be repeated every day at 00:00
+  - the synchronization will be repeated every day at 03:00 UTC
   - the current time will be announced acoustically if a motion is detected above the device  
   - rotating the knob changes the audio volume
   - pressing the knob will start the main menu
