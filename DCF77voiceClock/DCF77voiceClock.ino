@@ -10,7 +10,7 @@
  * The DCF77voiceClock is a DIY clock without a display and speaks the 
  * current time acoustically when a motion is detected by a PIR sensor
  * - Device works offline (audio samples are stored locally on a MP3 module)
- * - Time can be synced by DCF77 (manually and once per day at 00:00)
+ * - Time can be synced by DCF77 (manually and once per day at 03:00 UTC)
  * - Time can be set manually
  * - Device runs on battery
  * - Device has no display and communicates only acoustically (also in menu or when changing settings)
@@ -88,7 +88,7 @@
  *           Use DCF.getUTCTime instead of localTimeToUTC(DCF.getTime())
  *           Rename function getCurrentUTC to getCurrentTimeUTC
  */
- 
+
 #include <avr/sleep.h> //Needed for sleep_mode
 #include <avr/power.h> //Needed for powering down peripherals such as the ADC/TWI and Timers
 #include <TimeLib.h>
@@ -478,7 +478,7 @@ void loop() {
         // Schedule next DCF77 sync in 4h
         g_nextDCF77Sync = currentUTCTime + 4*SECS_PER_HOUR;
       } else {
-        // Schedule daily DCF77 sync 00:00 next day
+        // Schedule daily DCF77 sync 03:00 next day
         g_nextDCF77Sync = tmConvert_t(year(currentUTCTime), month(currentUTCTime), day(currentUTCTime), DCF77SYNCHOUR, 0,0)+SECS_PER_DAY;
       }
     }
