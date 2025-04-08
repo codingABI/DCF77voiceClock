@@ -84,6 +84,8 @@ When you get compile error "multiple definition of `__vector_5'" comment out "IS
 - In main menu, volume control or time announcement 35-200mA@3.3V
 - While daily DCF77 synchronisation ~2mA@3.3V (max for 15 minutes)
 
+The runtime with the 3.7V 3500mA Li-Ion battery is about 14 month. 
+
 ## Buzzer-Codes
 | Buzzer | Meaning |
 | :---  | :--- |
