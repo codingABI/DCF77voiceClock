@@ -1,6 +1,6 @@
 /* ----------- Stuff for EEPROM ----------
  * License: 2-Clause BSD License
- * Copyright (c) 2024 codingABI
+ * Copyright (c) 2024-2026 codingABI
  */
 
 // EEPROM signature, version and start address

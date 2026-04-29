@@ -2,12 +2,12 @@
  * Project: DCF77voiceClock (Ding21)
  *
  * Description:
- * "The DCF77voiceClock is on my bedside table and if I want to know the 
- * time at night without opening my eyes or saying anything, all I have to 
- * do is put my hand on or over the DCF77voiceClock and the time is 
+ * "The DCF77voiceClock is on my bedside table and if I want to know the
+ * time at night without opening my eyes or saying anything, all I have to
+ * do is put my hand on or over the DCF77voiceClock and the time is
  * announced to me."
- * 
- * The DCF77voiceClock is a DIY clock without a display and speaks the 
+ *
+ * The DCF77voiceClock is a DIY clock without a display and speaks the
  * current time acoustically when a motion is detected by a PIR sensor
  * - Device works offline (audio samples are stored locally on a MP3 module)
  * - Time can be synced by DCF77 (manually and once per day at 03:00 UTC)
@@ -17,7 +17,7 @@
  * - Audio samples for languages EN and DE (samples were created by powershell on a Windows 11 computer)
  *
  * License: 2-Clause BSD License
- * Copyright (c) 2024 codingABI
+ * Copyright (c) 2024-2026 codingABI
  * For details see: License.txt
  *
  * created by codingABI https://github.com/codingABI/DCF77voiceClock
@@ -25,18 +25,18 @@
  * External code:
  * I use external code in this project in form of libraries and two small
  * code piece called summertime_EU and getBandgap, but does not provide these code.
- * 
+ *
  * If you want to compile my project, you should be able to download the
  * needed libraries:
  * - Dusk2Dawn (by DM Kishi)
  * - DCF77 (by Thijs Elenbaas)
  * - Time (by Michael Margolis/Paul Stoffregen)
+ * - KY040 (by codingABI)
+ * - DFR0534 (by codingABI)
  * with the Arduino IDE Library Manager and the libraries:
- * - DFR0534 (https://github.com/codingABI/DFR0534 by codingABI)
  * - SWITCHBUTTON (https://github.com/codingABI/SWITCHBUTTON by codingABI)
- * - KY040 (https://github.com/codingABI/KY040 by codingABI)
  * from github.
- * 
+ *
  * For details to get the small code pieces for
  * - summertime_EU "European Daylight Savings Time calculation by "jurs" for German Arduino Forum"
  * - getBandgap by "Coding Badly" and "Retrolefty" from the Arduino forum
@@ -71,22 +71,24 @@
  * Notes
  * - The audio module DFR0534 consumes a lot of power (up to ~2W) and will be switched off when not needed
  * - During the menu system, the audio module DFR0534 is needed => Keep you menu actions short
- * - Do not connect the DFR0534 module to USB without removing the DFR0534 module from the 
- *   perfboard because the DFR0534 module will connect 5V from USB to the TP4056 output 
- *   and can break the TP4056 or other components 
+ * - Do not connect the DFR0534 module to USB without removing the DFR0534 module from the
+ *   perfboard because the DFR0534 module will connect 5V from USB to the TP4056 output
+ *   and can break the TP4056 or other components
  * - Do not connect ICSP-Vcc other than 3.3V (Better leave ICSP-Vcc unconnected)
  * - When you get compile error "multiple definition of `__vector_5'"
  *   comment out "ISR(PCINT2_vect, ISR_ALIASOF(PCINT0_vect));" in
  *   ...portable\packages\arduino\hardware\avr\1.8.6\libraries\SoftwareSerial\src\SoftwareSerial.cpp
- *   
- * History: 
- * 20240208, Initial version  
+ *
+ * History:
+ * 20240208, Initial version
  * 20240321, Add g_initTimeSyncPending
  * 20240511, Remove unneeded defines
  * 20241027, Set currenttime in loop more early
  *           Move DCF77SYNCHOUR from 0 to 3 to avoid problems at summer-/wintertime change
  *           Use DCF.getUTCTime instead of localTimeToUTC(DCF.getTime())
  *           Rename function getCurrentUTC to getCurrentTimeUTC
+ * 20241028, Rename some variables (g_nextDCF77Sync to g_nextDCF77SyncUTC, currentUTCTime to currentTimeUTC ...)
+ * 20260424, Exit daily silent DCF time sync by PIR sensor interrupt
  */
 
 #include <avr/sleep.h> //Needed for sleep_mode
@@ -118,7 +120,7 @@
 #define DCF77_OUT_PIN 2 // DCF77 out
 
 #define USERTIMEOUT 60 // Set timeout in MS for user inputs
-#define DCF77SYNCHOUR 3 // Hour for daily DCF77 time sync
+#define DCF77SYNCHOUR 3 // UTC-Hour for daily DCF77 time sync
 #define MP3INITVOLUME 20 // Default audio level
 #define MP3MINVOLUME 10 // Minimum audio level while in menu
 #define MAXIDLECHECKS 2 // Number of consecutive IDLE checks before audio module will be powered of in loop
@@ -147,7 +149,7 @@ KY040 g_rotaryEncoder(ROTARY_CLK_PIN,ROTARY_DT_PIN); // Rotary encoder
 SWITCHBUTTON g_switchButton(ROTARY_SW_PIN); // Rotary encoder switch button
 DCF77 DCF = DCF77(DCF77_OUT_PIN,digitalPinToInterrupt(DCF77_OUT_PIN)); // DCF77 module
 bool g_weakTime = true; // True, if no DCF77 sync was startet or did not succeed
-unsigned long g_nextDCF77Sync = 0; // Next planed DCF77 sync
+unsigned long g_nextDCF77SyncUTC = 0; // Next planed DCF77 sync
 SoftwareSerial* g_MP3Serial; // Serial connection to MP3 module
 DFR0534 *g_audio; // Audio module
 bool g_MP3enabled = false; // True, if MP3 module was enabled
@@ -156,7 +158,11 @@ bool g_MP3enablePending = false; // True, when the audio module was powered up, 
 bool g_initTimeSyncPending = true; // True, when time was never synced
 unsigned long g_MP3powerOnMS = 0; // Millis timestamp, when the audio module was powered up
 volatile bool v_PIRAlert = false; // True, if PIR alerts
-enum DCFAUDIOMODES { INITMODE, SILENTMODE, MP3MODE }; // Audio modes during DCF77 sync
+enum DCFAUDIOMODES { // Audio modes during DCF77 sync
+  INITMODE, // At startup: Only ticks
+  SILENTMODE, // Daily silent mode
+  MP3MODE // Voice/menu mode
+};
 byte g_dcfAudioMode = INITMODE; // Active audio mode during DCF77 sync
 enum beepTypes { // Beep types for the buzzer
   DEFAULTBEEP,
@@ -164,8 +170,13 @@ enum beepTypes { // Beep types for the buzzer
   LONGBEEP,
   HIGHSHORTBEEP,
   LASER,
-  MICROBEEP };
-enum LANGUAGES { EN, DE, MAXLANGUAGES }; // Speech languages
+  MICROBEEP
+};
+enum LANGUAGES { // Speech languages
+  EN,
+  DE,
+  MAXLANGUAGES
+};
 byte g_languageID; // Current speech language
 
 // Pending audio sequence and volume level
@@ -242,7 +253,7 @@ void enableWatchdogTimer() {
 
 // ISR for the watchdog timer
 ISR(WDT_vect) {
-  // Set buzzer pin to HIGH to show the pending WDT reset 
+  // Set buzzer pin to HIGH to show the pending WDT reset
   digitalWrite(BUZZER_PIN,HIGH);
 
   // In 8 seconds device will reset
@@ -362,7 +373,7 @@ time_t tmConvert_t(int YYYY, byte MM, byte DD, byte hh, byte mm, byte ss)
   return makeTime(tmSet);
 }
 
-// Convert local time to UTC (First hour of summertime->wintertime change will be returned as wintertime) 
+// Convert local time to UTC (First hour of summertime->wintertime change will be returned as wintertime)
 time_t localTimeToUTC(time_t localTime) {
   if (summertime_EU(year(localTime),month(localTime),day(localTime),hour(localTime),1)) {
     return localTime-7200UL; // Summer time (Germany)
@@ -411,7 +422,7 @@ void setup() {
 }
 
 void loop() {
-  unsigned long currentUTCTime;
+  unsigned long currentTimeUTC;
   static unsigned long lastVccUTCTime = 0;
   #define VCCUNKNOWN -1000
   static int Vcc = VCCUNKNOWN;
@@ -423,19 +434,19 @@ void loop() {
   wdt_reset();
 
   // Get current time
-  currentUTCTime = getCurrentTimeUTC();
+  currentTimeUTC = getCurrentTimeUTC();
 
   // Update Vcc measurement dependent on previous Vcc
   if (Vcc == VCCUNKNOWN) { // First Vcc measurement needed
     VccReady = true;
   }
   // Increase Vcc measurement intervals when Vcc is low
-  if ((Vcc <= LOWBAT10MV_3V0) && (currentUTCTime - lastVccUTCTime > 60)) VccReady = true;
-  if ((Vcc > LOWBAT10MV_3V0) && (currentUTCTime - lastVccUTCTime > 10)) VccReady = true;
+  if ((Vcc <= LOWBAT10MV_3V0) && (currentTimeUTC - lastVccUTCTime > 60)) VccReady = true;
+  if ((Vcc > LOWBAT10MV_3V0) && (currentTimeUTC - lastVccUTCTime > 10)) VccReady = true;
 
   if (VccReady) {
     Vcc = getBandgap(); // Every getBandgap costs 50ms full speed runtime
-    lastVccUTCTime = currentUTCTime;
+    lastVccUTCTime = currentTimeUTC;
   }
 
   if (Vcc >= OVERBAT10MV_4V0) { // Vcc to high for audio module
@@ -446,7 +457,7 @@ void loop() {
   }
 
   // Power off audio module, when not needed anymore
-  if ((g_MP3enabled) && (currentUTCTime != lastAudioCheckUTC)) {
+  if ((g_MP3enabled) && (currentTimeUTC != lastAudioCheckUTC)) {
     if (g_audio->getStatus() == DFR0534::STOPPED){
       idleCounter++;
       if (idleCounter >= MAXIDLECHECKS) {
@@ -454,14 +465,14 @@ void loop() {
         idleCounter = 0;
       }
     } else idleCounter = 0;
-    lastAudioCheckUTC = currentUTCTime;
+    lastAudioCheckUTC = currentTimeUTC;
   }
 
   checkPendingAudio();
 
   if (Vcc > LOWBAT10MV_3V0) { // Vcc ready for DCF77, audio ...?
     // Ready for initial DCF77 sync?
-    if ((Vcc > FULLBAT10MV_3V2) && (currentUTCTime>g_nextDCF77Sync)) {
+    if ((Vcc > FULLBAT10MV_3V2) && (currentTimeUTC>g_nextDCF77SyncUTC)) {
       // Get time from DCF77
       setTimeFromDCF77();
       if (g_dcfAudioMode == INITMODE) {
@@ -469,17 +480,17 @@ void loop() {
         if (!g_weakTime) setPendingAudio(AUDIO_SYNCSUCCESS);
         else setPendingAudio(AUDIO_SYNCABORTED);
         g_dcfAudioMode = SILENTMODE;
+        cli();
+        v_PIRAlert = false; // Clear unprocessed PIR interrupt
+        sei();
       }
-      cli();
-      v_PIRAlert = false; // Clear unprocessed PIR interrupt
-      sei();
-      currentUTCTime = getCurrentTimeUTC();
+      currentTimeUTC = getCurrentTimeUTC();
       if (g_initTimeSyncPending) { // If time was never set/synced
         // Schedule next DCF77 sync in 4h
-        g_nextDCF77Sync = currentUTCTime + 4*SECS_PER_HOUR;
+        g_nextDCF77SyncUTC = currentTimeUTC + 4*SECS_PER_HOUR;
       } else {
-        // Schedule daily DCF77 sync 03:00 next day
-        g_nextDCF77Sync = tmConvert_t(year(currentUTCTime), month(currentUTCTime), day(currentUTCTime), DCF77SYNCHOUR, 0,0)+SECS_PER_DAY;
+        // Schedule daily DCF77 sync 03:00 UTC next day
+        g_nextDCF77SyncUTC = tmConvert_t(year(currentTimeUTC), month(currentTimeUTC), day(currentTimeUTC), DCF77SYNCHOUR, 0,0)+SECS_PER_DAY;
       }
     }
 
@@ -492,7 +503,7 @@ void loop() {
         if (Vcc > FULLBAT10MV_3V2) {
           // Say current time
           clearPendingAudio();
-          sayTime(UTCtoLocalTime(currentUTCTime));
+          sayTime(UTCtoLocalTime(currentTimeUTC));
         } else {
           beep(LONGBEEP); // LOW Battery warning
         }
@@ -512,8 +523,8 @@ void loop() {
           if (g_MP3Volume < MP3MINVOLUME) g_pendingAudio.volume = MP3MINVOLUME; // Use MP3MINVOLUME, when used volume is too low for the menu
           if (changeVolume()) setPendingAudio(AUDIO_DONE);
           else setPendingAudio(AUDIO_ABORTED);
-          currentUTCTime = getCurrentTimeUTC();
-          lastAudioCheckUTC = currentUTCTime;
+          currentTimeUTC = getCurrentTimeUTC();
+          lastAudioCheckUTC = currentTimeUTC;
           idleCounter = 0;
           cli();
           v_PIRAlert = false;
@@ -526,8 +537,8 @@ void loop() {
       case SWITCHBUTTON::SHORTPRESSED:
       case SWITCHBUTTON::LONGPRESSED:
           menu();
-          currentUTCTime = getCurrentTimeUTC();
-          lastAudioCheckUTC = currentUTCTime;
+          currentTimeUTC = getCurrentTimeUTC();
+          lastAudioCheckUTC = currentTimeUTC;
           idleCounter = 0;
           cli();
           v_PIRAlert = false;
@@ -537,7 +548,7 @@ void loop() {
   } else { // Low battery Vcc <= LOWBAT10MV_3V0
     // Beep ever 15 minutes
     #define ALARMINTERVAL 60*15
-    if ((currentUTCTime % ALARMINTERVAL) == 0) {
+    if ((currentTimeUTC % ALARMINTERVAL) == 0) {
       beep(SHORTBEEP);
       beep(SHORTBEEP);
       beep(SHORTBEEP);

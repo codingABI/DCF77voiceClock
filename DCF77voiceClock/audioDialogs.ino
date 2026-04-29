@@ -1,6 +1,6 @@
 /* ----------- Stuff for the audio dialogs ----------
  * License: 2-Clause BSD License
- * Copyright (c) 2024 codingABI
+ * Copyright (c) 2024-2026 codingABI
  */
 
 // Enables MP3 module
@@ -116,8 +116,8 @@ void relaxedCheckPendingAudio() {
 
 // Say complete time (clock, date, sunrise, sunset...)
 void sayCompleteTime() {
-  unsigned long currentUTCTime =  getCurrentTimeUTC();
-  unsigned long currentLocalTime = UTCtoLocalTime(currentUTCTime);
+  unsigned long currentTimeUTC =  getCurrentTimeUTC();
+  unsigned long currentLocalTime = UTCtoLocalTime(currentTimeUTC);
 
   clearPendingAudio();
   sayTime(currentLocalTime);
@@ -131,13 +131,13 @@ void sayCompleteTime() {
 
   // Sunrise/sunset
   Dusk2Dawn sunRiseSet(MYLAT,MYLON,0);
-  int sunriseMinutes = sunRiseSet.sunrise(year(currentUTCTime), month(currentUTCTime), day(currentUTCTime), false);
+  int sunriseMinutes = sunRiseSet.sunrise(year(currentTimeUTC), month(currentTimeUTC), day(currentTimeUTC), false);
   addPendingAudio(AUDIO_SUNRISE);
-  sayTime(UTCtoLocalTime(tmConvert_t(year(currentUTCTime), month(currentUTCTime), day(currentUTCTime), (byte)(sunriseMinutes/60), (byte) (sunriseMinutes%60),0)));
+  sayTime(UTCtoLocalTime(tmConvert_t(year(currentTimeUTC), month(currentTimeUTC), day(currentTimeUTC), (byte)(sunriseMinutes/60), (byte) (sunriseMinutes%60),0)));
 
-  int sunsetMinutes = sunRiseSet.sunset(year(currentUTCTime), month(currentUTCTime), day(currentUTCTime), false);
+  int sunsetMinutes = sunRiseSet.sunset(year(currentTimeUTC), month(currentTimeUTC), day(currentTimeUTC), false);
   addPendingAudio(AUDIO_SUNSET);
-  sayTime(UTCtoLocalTime(tmConvert_t(year(currentUTCTime), month(currentUTCTime), day(currentUTCTime), (byte)(sunsetMinutes/60), (byte) (sunsetMinutes%60),0)));
+  sayTime(UTCtoLocalTime(tmConvert_t(year(currentTimeUTC), month(currentTimeUTC), day(currentTimeUTC), (byte)(sunsetMinutes/60), (byte) (sunsetMinutes%60),0)));
 
   addPendingAudio(AUDIO_MAINMENU);
   addPendingAudio(AUDIO_CURRENTITEM);
@@ -151,9 +151,10 @@ void setTimeFromDCF77() {
   byte lastOutput = HIGH;
   unsigned long lastAudioCheckUTC = 0;
   unsigned long syncStartTimeUTC;
-  unsigned long currentUTCTime;
+  unsigned long currentTimeUTC;
   byte buzzerCounter = 0;
   byte idleCounter = 0;
+  bool PIRAlert;
 
   if (g_dcfAudioMode == MP3MODE) {
     setPendingAudio(AUDIO_SYNCDESC1);
@@ -181,10 +182,15 @@ void setTimeFromDCF77() {
   do {
     wdt_reset();
     relaxedCheckPendingAudio();
+    cli();
+    PIRAlert = v_PIRAlert;
+    sei();
+    // Cancel time sync by PIR sensor in silent mode
+    if (PIRAlert && (g_dcfAudioMode == SILENTMODE)) exitLoop = true;
 
     // Power off audio module, when not needed anymore
-    currentUTCTime = getCurrentTimeUTC();
-    if ((g_MP3enabled) && (currentUTCTime != lastAudioCheckUTC)) {
+    currentTimeUTC = getCurrentTimeUTC();
+    if ((g_MP3enabled) && (currentTimeUTC != lastAudioCheckUTC)) {
       if (g_audio->getStatus() == DFR0534::STOPPED){
         idleCounter++;
         if (idleCounter >= MAXIDLECHECKS) {
@@ -192,7 +198,7 @@ void setTimeFromDCF77() {
           idleCounter = 0;
         }
       } else idleCounter = 0;
-      lastAudioCheckUTC = currentUTCTime;
+      lastAudioCheckUTC = currentTimeUTC;
     }
 
     // Use DCF77 signal as acoustic signal
@@ -213,7 +219,7 @@ void setTimeFromDCF77() {
     }
 
     // User input timeout expired?
-    if (currentUTCTime - syncStartTimeUTC >= DCF77TIMEOUT) exitLoop = true;
+    if (currentTimeUTC - syncStartTimeUTC >= DCF77TIMEOUT) exitLoop = true;
 
     switch (g_switchButton.getButton()) {
       case SWITCHBUTTON::SHORTPRESSED:
@@ -251,7 +257,7 @@ void menu() {
   int lastMenuItem = MAXMENUITEMS;
   unsigned long lastUserInputUTC = 0;
   bool exitLoop = false;
-  unsigned long currentUTCTime;
+  unsigned long currentTimeUTC;
 
   currentMenuItem = MENUCOMPLETETIME;
   lastMenuItem = currentMenuItem;
@@ -371,10 +377,10 @@ void menu() {
             g_dcfAudioMode = MP3MODE;
             setTimeFromDCF77();
             g_dcfAudioMode = SILENTMODE;
-            currentUTCTime = getCurrentTimeUTC();
+            currentTimeUTC = getCurrentTimeUTC();
             if (!g_weakTime) { // Success
               // Schedule daily DCF77 sync
-              g_nextDCF77Sync = tmConvert_t(year(currentUTCTime), month(currentUTCTime), day(currentUTCTime), DCF77SYNCHOUR, 0,0)+SECS_PER_DAY;
+              g_nextDCF77SyncUTC = tmConvert_t(year(currentTimeUTC), month(currentTimeUTC), day(currentTimeUTC), DCF77SYNCHOUR, 0,0)+SECS_PER_DAY;
               setPendingAudio(AUDIO_SYNCSUCCESS);
             } else setPendingAudio(AUDIO_SYNCABORTED);
             addPendingAudio(AUDIO_MAINMENU);
@@ -611,7 +617,7 @@ void setManualTime() {
             g_weakTime = true; // Do not 100% trust manual time
             lastUserInputUTC = getCurrentTimeUTC();
             // Schedule next DCF77 sync for next day
-            g_nextDCF77Sync = tmConvert_t(year(lastUserInputUTC), month(lastUserInputUTC), day(lastUserInputUTC), DCF77SYNCHOUR, 0,0)+SECS_PER_DAY;
+            g_nextDCF77SyncUTC = tmConvert_t(year(lastUserInputUTC), month(lastUserInputUTC), day(lastUserInputUTC), DCF77SYNCHOUR, 0,0)+SECS_PER_DAY;
             // Say current selected item
             localTime = UTCtoLocalTime(getCurrentTimeUTC());
             setPendingAudio(AUDIO_CURRENTITEM);

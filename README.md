@@ -14,7 +14,7 @@ Watch device on [Youtube](https://youtu.be/HLoVj9araNE)
 ![DCF77voiceClock](assets/images/DCF77voiceClock.jpg)
 
 ## License and copyright
-My code is licensed under the terms of the 2-Clause BSD License [Copyright (c) 2024 codingABI](LICENSE). 
+My code is licensed under the terms of the 2-Clause BSD License [Copyright (c) 2024-2026 codingABI](LICENSE). 
 
 ### External code
 I use external code in this project in form of libraries and two small
@@ -25,12 +25,12 @@ If you want to compile my project, you should be able to download the needed lib
 - Dusk2Dawn (by DM Kishi)
 - DCF77 (by Thijs Elenbaas)
 - Time (by Michael Margolis/Paul Stoffregen)
+- KY040 (by codingABI)
+- DFR0534 (by codingABI)
 
-with the Arduino IDE Library Manager and the libraries
+with the Arduino IDE Library Manager and the library
 
-- DFR0534 (https://github.com/codingABI/DFR0534 by codingABI)
 - SWITCHBUTTON (https://github.com/codingABI/SWITCHBUTTON by codingABI)
-- KY040 (https://github.com/codingABI/KY040 by codingABI)
 
 from github.
 
